@@ -1,0 +1,324 @@
+% Script control for a total generalised variation inversion
+clear all
+close all
+
+% Input data files and settings here
+
+% Filename and pathname of file
+source_files = {'gauss.dat'}; % cell array of filenames (strings) to invert
+pathname = 'C:\Users\bgsvisluke2\OneDrive - The University of Nottingham\UoN Box Migration\Karaoulis-2013-dev\ip4Di_TGV_PAPER\demodata'; % full path to data directory
+out_path = 'C:\Users\bgsvisluke2\OneDrive - The University of Nottingham\UoN Box Migration\Karaoulis-2013-dev\ip4Di_TGV_PAPER\demodata'; % full path to output folder
+append_txt = ''; % used to add additional text to the output filename
+
+% default file format is IP4DI files (.d)- see IP4DI manual
+% can also take .dat filetypes as generated from res2dinv
+res2d_flag = 2; % 0 - .d file; 1 - .dat file, general format. 2 - .dat file dipole-dipole format
+wd_flag = 0; % 0 - no data errors in inversion. 2 - use errors from input file
+data_type = 1; % 1 = apparent resistivity, 2 = resistance
+res2d_headerlines = 6; % manually input number of headerlines in .dat file
+
+mu = {2.0}; % TGV trade off parameter. Cell array allows multiple values
+lagrn = 0.15; % damping parameter (lambda)
+itn = 10; % number of gauss newton iterations in inversion
+
+% Advanced options 
+ref_flag = 1;  % defines cell width. 0 - 1 cell per electrode. 1 - 2 cells per electrode (default)
+manual_flag = 0; % 0 - default. 1 - mesh spacing and depth can be customised by modifying depth_calculator.m
+extend_mesh_flag = 0; % 0 - default. 1 - extends mesh outside
+
+%% Inversion process begins
+curr_dir = pwd;
+
+for q = 1:length(mu)
+    
+    for r = 1:length(source_files)
+        clearvars -except q r i source_files res2d_headerlines pathname out_path curr_dir lagr_txt lagrn mu ref_flag damp_surface_flag append_txt res2d_flag wd_flag data_flag itn manual_flag extend_mesh_flag data_type
+
+        
+        % --------- Initialisation, do not change ------------------------
+        % Includes read data, meshing, as well as legacy parameter
+        % assignments from IP4DI base code
+        
+        % Experimental options, advise against use
+        input.lc_flag = 0; % l curve method to determine damping parameter
+        damp_surface_flag = 0; % attempt to damp 
+        input.topography_flag = 0; % My flag for reading topography straight from file. 
+
+        input.tgv_lagrn = mu{q};
+        
+        input.res2d_headerlines = res2d_headerlines;
+        input.damp_surface_flag = damp_surface_flag;
+        input.out_path = out_path;
+        
+        % Filename and pathname of file- .d for single .dat TL
+        filename = source_files{r};
+        %     pathname = source_path(i);
+        [filename_path, short_filename,file_ext] = fileparts(filename);
+        
+        if ~isempty(filename_path)
+            pathname = filename_path;
+        end
+        
+        lagr_txt = [' lag',num2str(lagrn.*100,'%d'),'_tgv_lag',num2str(10.*input.tgv_lagrn,'%d'),append_txt];
+        input.batch_save = ['TGV ',short_filename,lagr_txt];
+        
+        mkdir(input.out_path,input.batch_save); % output folder
+        
+        % ---Read Data Parameters---------
+        
+        input.time_lapse_flag = 0; % TGV Time lapse not implemented       input.wd_flag = wd_flag;     
+        input.data_type = data_type;    % 1 = apparent resistivity, 2 = resistance
+        input.res2d_flag = res2d_flag;   
+        input.fd_weight = 1;    % = 1 for true fd weighting for cell separation
+        input.ext_mesh_flag = extend_mesh_flag;
+        input.tgv_itr = itn;
+
+        % Bypasses borehole detection currently.
+        if ref_flag == 1;
+            input.refine_mesh_flag = 1;  % = 1 for cell widths equal to half electride spacing
+            manual_flag = 1;       % flag for manual depth (need to custimise depth function)
+        else
+            input.refine_mesh_flag = 0;
+        end
+        
+        % --- Fixed Parameters ------------
+        
+        % I am always using DC data
+        input.sip_flag=0;
+        input.ip_flag=0;
+        input.dc_flag=1;
+        
+        % Background file load settings
+        input.bgr_res_flag = 0; % 0 if no background file, 1 otherwise
+        input.pathname = '[]';
+        input.filename = '[]'; % *.mod file for difference *.mat for timelapse. Why??
+        input.par_nm = fullfile(input.pathname, input.filename);
+        
+        % --- Carry out read data and meshing -----
+        
+        input.mes_in = fullfile(pathname, [short_filename, file_ext]);
+        
+        %  try
+        if input.time_lapse_flag==0
+            [input]=read_data(input);
+            disp('Data read...')
+        else
+            [input]=read_4d_data(input);
+            disp('data read....')
+        end
+        
+        [input,mesh]=create_mesh3_script(input,manual_flag);
+        disp('..mesh done.')
+        
+        input.inv_flag = -3; % -3, flag for TGV inversion
+        mesh.px = zeros(mesh.num_param,1);
+        mesh.py = mesh.px;
+        
+        % ---- Fixed input/mesh parameters ----
+        
+        % boundary conditions for FEM (always hom. dirichlet for internal boundary)
+        input.bc_option = 2; % 1=air/surface is dirichlet; 2=mixed (air/surface neumann)
+        input.acb_flag = 0; % Not using active constraint balancing
+        input.lagrn_min = 0.005; % Minimum lagrange multiplier value (stops cooling off)
+        input.lagrn_max = 1; % Max lagrange multiplier (acb only)
+        input.limit_res = 0; % =1 if want to limit max/min res values, 0 otherwise
+        input.min_res = 1; % minimum allowed res (default = 0)
+        input.max_res=100000000; % Max allowed res (default = 100000000)
+        input.jacobian_flag = 2; % 2 for full Jacobian; 1 for Quasi-Newton
+        input.atc_flag = 0; % = 1 for active time constraints only.
+        input.conv_rate = .1; % very strict convergence checker to prevent termination
+        
+        % temp variables to measure convergence
+        rms1 = 0;
+        rms2 = 0;
+        
+        % Parameters set by inversion_parameters.m on buttonpress
+        input.data_type=1;
+        input.elec_array_type=1;
+        input.conv_rate=2;
+        input.current=1;
+        input.strike_dist=0;
+        input.loke_colors=0;
+        
+        % Need a textbox textt to write in to let main work
+        figure(1)
+        texthand = uicontrol('Style','Text','Units','Normalized','Position',[0.1,0.1,0.8,0.8]);
+        global textt
+        textt = texthand;
+        figure(2)
+        big_part = gca;
+        
+        % Computes gradient operators
+        mesh=smooth_mtx_surface4(input,mesh);
+
+        fem = struct();
+        mesh=smooth_mtx_surface4(input,mesh);
+        
+        % ---------- TGV outer loop begins ------------------------------
+        
+        starting_res = mesh.res_param1;
+        %     lagrn = 0.15;
+        itr = 1;
+        
+        while itr <= input.tgv_itr
+            
+            disp(['*** Iteration ', num2str(itr),' ***'])
+            
+            
+            % -------- SUBPROBLEM 1 --------
+            % Fix p, update resistivty model
+            
+            input.lagrn_reduction = 2;
+            
+            % sets cooling off scheme for damping parameter
+            % lambda_(n+1) = lambda_(n)/inmput.lambda_reduction.
+            if itr==2 ;input.lagrn_reduction=2;end
+            if itr==3 ;input.lagrn_reduction=1.75; end
+            if itr==4 ;input.lagrn_reduction=1.5; end
+            if itr==5;input.lagrn_reduction=1.25; end
+            if itr>5  ;input.lagrn_reduction=1; end
+            
+            % prevents inflation
+            if input.lagrn_reduction < 1; input.lagrn_reduction = 1; end
+            
+            if itr == 1
+                input.lagrn = lagrn; % Lagrange multiplier initial value (rec. 0.05)
+            else
+                input.lagrn = input.lagrn/input.lagrn_reduction;
+            end
+            
+            
+            input.itn = 1; % Number of iterations to perform
+            input.lc_flag = 0; 
+            
+            % Calls single Gauss-Newton iteration
+            [input, mesh, final, fem, ex, t_fwd, t_inv] = main_tgv(input,mesh,itr,fem);
+            
+            disp(['Forward problem time = ',num2str(t_fwd),'s ; sp1 matrix equation time = ',num2str(t_inv),'s'])
+            
+            cd(fullfile(input.out_path,input.batch_save));
+            save(['tgv_it_', num2str(itr), '_sp1'],'final')
+            cd(curr_dir);
+            
+            % convergence check
+            rms2 = fem.rms_sum1;
+            conv_perc = 2*(rms1 - rms2)/(rms2 + rms1);
+            abs_conv = abs(rms2-rms1);
+            if conv_perc < 0 && itr > 1
+                disp('Ending - Divergence!')
+                break
+            elseif conv_perc < 0.01 && itr > 2 && abs_conv < 0.05
+                disp('*** Slow Convergence ***')
+                break
+            end
+            rms1 = rms2;
+            
+            
+            % -------- SUBPROBLEM 2 --------
+            % Fix model, update p
+            tic
+            if itr == input.tgv_itr; break; end
+            
+            input.sp2_itr = 100;
+            
+            % Used in main calculation
+            mesh.px = zeros(mesh.num_param,1);
+            mesh.py = mesh.px;
+            gamma_p = 1e-3;               % cutoff for |x| -> 0
+            gamma_c = 5e-2;
+            % Used in performance metrics
+            p1 = zeros(2*mesh.num_param,1);
+            rms_p = zeros(1,input.sp2_itr+1);
+            
+            % main sp2 loop
+            if itr ~= input.tgv_itr
+                for i = 2:(input.sp2_itr+1)
+                    
+                    % calculater weights
+                    Rm = diag(1./sqrt((mesh.cx*log10(mesh.res_param1) - mesh.px).^2 + (mesh.cy*log10(mesh.res_param1) - mesh.py).^2 + gamma_c^2));
+                    Rp = diag(1./sqrt((mesh.cx'*mesh.px).^2 + (mesh.cy'*mesh.py).^2 + 0.5*(mesh.cx'*mesh.py + mesh.cy'*mesh.px).^2 + gamma_p.^2));
+                    
+                    % Set up matrix equation for px, py and solve
+                    % a11*px + a12*px = b1;  a21*px + a22*py = b2;
+                    a11 = Rm + input.tgv_lagrn*(mesh.cx*Rp*mesh.cx' + 0.5*mesh.cy*Rp*mesh.cy');
+                    a12 = input.tgv_lagrn*0.5*mesh.cy*Rp*mesh.cx';
+                    a21 = input.tgv_lagrn*0.5*mesh.cx'*Rp*mesh.cy;
+                    a22 = Rm + input.tgv_lagrn*(mesh.cy*Rp*mesh.cy' + 0.5*mesh.cx*Rp*mesh.cx');
+                    b1 = Rm*mesh.cx*log10(mesh.res_param1);
+                    b2 = Rm*mesh.cy*log10(mesh.res_param1);
+                    A = [a11, a12; a21, a22];
+                    b = [b1; b2];
+                    p2 = A\b;
+                    mesh.px = p2(1:end/2);
+                    mesh.py = p2(end/2+1:end);
+                    
+                    % Store results
+                    px(:,i) = mesh.px;
+                    py(:,i) = mesh.py;
+                    
+                    
+                    
+                    % root mean square difference between last and current
+                    % solution normalise by rms p value
+                    rms_p(i) = sqrt(mean((p2 - p1).^2))/(0.5*sqrt(mean(p1.^2 + p2.^2)));
+                    %         disp(['rms dp = ',num2str(p_rms(i))])
+                    %                 rms_change(i) = abs((p_rms(i) - p_rms(i-1)))./(p_rms(i) + p_rms(i-1)); % percentage rms change per itr
+                    p1 = p2;
+                    
+                    if ((i > 4) && (rms_p(i) < 0.01)) %  stop if change smaller than 1%
+                        sp2_i = i;  % store number of iterations needed
+                        break
+                    elseif ((rms_p(i) > rms_p(i-1)) && rms_p(i-1) < 0.1 && i > 2) % stop if diverging and
+                        sp2_i = i;  % store number of iterations needed
+                        mesh.px = px(:,i-1);
+                        mesh.py = py(:,i-1);
+                        break
+                    end
+                    
+                    
+                    if i == (input.sp2_itr+1)
+                        sp2_i = i;
+                    end
+                end
+            end
+            
+            
+            t_sp2 = toc;
+            disp(['Subproblem 2 time = ',num2str(t_sp2),'s (for ',num2str(sp2_i),' iterations)'])
+            
+            
+            % Plot convergence
+            figure(10)
+            hold off
+            plot(rms_p)
+            title('rms change in p')
+            xlabel('sp 2 iteration')
+            ylabel('rms dp')
+            
+            
+            % Save to final
+            final.px = mesh.px;
+            final.py = mesh.py;
+            final.t_fwd(itr) = t_fwd;
+            final.t_inv(itr) = t_inv;
+            final.t_sp2 = t_sp2;
+            final.sp2_itr = sp2_i;
+            final.rms_p = rms_p;
+            final.cx = mesh.cx;
+            final.cy = mesh.cy;
+            final.tgv_lagrn = input.tgv_lagrn;
+            
+            save(fullfile(input.out_path,input.batch_save,['tgv_it_', num2str(itr), '_sp2']),'final')
+            itr = itr + 1;
+            
+        end
+    end
+    
+    
+    
+end
+
+
+
+
+

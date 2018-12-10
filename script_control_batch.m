@@ -1,0 +1,158 @@
+% Script control for l2/TV inversion
+clear all
+close all
+% Input data files and settings here
+
+% Filename and pathname of file
+source_files = {'gauss.dat'}; % cell array of filenames (strings) to invert
+pathname = ''; % full path to data directorycd
+out_path = ''; % Full path to output folder
+append_txt = ''; % append string to filename
+
+res2d_flag = 2; % 0=IP4DI input, 1 = Loke, 2 = loke dd
+wd_flag = 0; % 0 - no data errors in inversion. 1 - use errors directly from input file
+data_type = 1; % 1 = apparent resistivity, 2 = resistance
+res2d_headerlines = 6; % number of headerlines to discount in res2d file
+
+% inv_flag_list: vector of flags specifying inversion types. 
+% -1 = l1 data term, l1 (TV) regularisation 
+% -2 = l1 data term, l2 regularisation
+% 2 = l2 data term, l2 regularisation
+inv_flag_list = [-1,-2,2]; 
+lagrn = 0.15; % initial damping parameter, lambda
+itn = 10;% number of iterations in inversion
+
+% Advanced Options
+ref_flag = 1;  % defines cell width. 0 - 1 cell per electrode. 1 - 2 cells per electrode (default)
+manual_flag = 0; % 0 - default. 1 - mesh spacing and depth can be customised by modifying depth_calculator.m
+ext_mesh_flag = 0; % 0 - default. 1 - extends mesh outside
+
+% Output filename details
+inv_text = {'_l11', '_l12','_l22'}; 
+lagr_txt = {['_',num2str(100*lagrn,'%d'),'lag',append_txt]};
+
+%% Inversion process begins
+for j = 1:length(inv_flag_list) % Different inv parameters   
+    for i = 1:length(source_files)
+        
+        % --- Experimental options, advise against use. (default = 0) ---
+        input.lc_flag = 0; % l curve method to determine damping parameter
+        damp_flag = 0; % attempt to damp 
+        input.topography_flag = 0; % My flag for reading topography straight from file. 
+            
+        % ---------- Set parameters from ip4di unpackaging, do not change
+
+        input.damp_surface_flag = damp_flag;  
+        input.ext_mesh_flag = ext_mesh_flag; % 0 - default. 1 - extends mesh outside
+                  
+        if ref_flag == 1                           
+            manual_flag = 1; 
+            input.refine_mesh_flag = 1;  % = 1 for cell widths equal to half electride spacing
+
+        else
+            input.refine_mesh_flag = 0; 
+        end
+        
+               
+        % --------------------- Fixed Parameters ----------------------------------
+        
+        % I am always using DC data
+        input.sip_flag=0;
+        input.ip_flag=0;
+        input.dc_flag=1;
+        input.time_lapse_flag = 0;    % Time lapse inversion not implemented for TGV
+
+        % Background file load settings
+        input.bgr_res_flag = 0; % 0 if no background file, 1 otherwise
+        input.pathname = '[]';
+        input.filename = '[]'; % *.mod file for difference *.mat for timelapse. Why??
+        input.par_nm = fullfile(input.pathname, input.filename);
+        input.fd_weight = 1;    % Default = 1. Set to equal 0 turns off fd weightings.
+
+        % ------------------- Carry out read data and meshing ---------------------
+        input.res2d_flag = res2d_flag; 
+        input.res2d_headerliens = res2d_headerlines;
+        input.wd_flag = wd_flag;      
+        input.data_type = data_type;            
+        filename = cell2mat(source_files(i));
+        
+        [filename_path, short_filename,file_ext] = fileparts(filename);
+        % Allows path to be given in filename
+        if ~isempty(filename_path)
+            pathname = filename_path;
+        end
+        input.batch_save = [short_filename,cell2mat(inv_text(j)),cell2mat(lagr_txt)];
+        input.inv_flag = inv_flag_list(j);
+        input.out_path = out_path;        
+        input.mes_in = fullfile(pathname, [short_filename, file_ext]);
+        
+        if input.time_lapse_flag==0
+            [input]=read_data(input);
+            disp('Data read...')
+        else
+            [input]=read_4d_data(input);
+            disp('data read....')
+        end
+        
+        [input,mesh]=create_mesh3_script(input,manual_flag);
+        disp('..mesh done.')
+
+        % Need axis handle to be 'big part'. Part of unpacking of IP4DI GUI
+        global big_part; big_part = gca;
+        
+
+        %% -------------------- Inversion Parameters ------------------------------
+        % Inversion flag determines type of inversion:
+        % SINGLE TIME:
+        % -2=IRLS GN (l2 data); -1=IRLS GN (l1 data); 0=Levenburgh-Marquadt;
+        % 1=Occam; 2=GN;
+        % TIME LAPSE:
+        % 7=4D
+        input.lagrn = lagrn; % Lagrange multiplier initial value (rec. 0.05)
+        input.lagrn_reduction = 2; % Factor by which lagrange multiplier is divided each itr
+        input.itn = itn; % Number of iterations to perform
+        %     input.inv_flag = -1;
+        % --------------------- Fixed Parameters ----------------------------------
+        % (shouldn't need to change often for my applications)
+        
+        % boundary conditions for FEM (always hom. dirichlet for internal boundary)
+        mesh.bc_option = 2; % 1=air/surface is dirichlet; 2=mixed (air/surface neumann)
+        input.acb_flag = 0; % Not using active constraint balancing
+        input.lagrn_min = 0.005; % Minimum lagrange multiplier value (stops cooling off)
+        input.lagrn_max = 1; % Max lagrange multiplier (acb only)
+        input.limit_res = 0; % =1 if want to limit max/min res values, 0 otherwise
+        input.min_res = 1; % minimum allowed res (default = 0)
+        input.max_res=100000000; % Max allowed res (default = 100000000)
+        input.jacobian_flag = 2; % 2 for full Jacobian; 1 for Quasi-Newton
+        input.atc_flag = 0; % = 1 for active time constraints only.
+        
+        % Parameters set by inversion_parameters.m on buttonpress
+        input.elec_array_type=1;
+        input.conv_rate=2;
+        input.current=1;
+        input.strike_dist=0;
+        input.loke_colors=0;
+        
+        
+        % Need a textbox textt to write in to let main work
+        figure(1)
+        texthand = uicontrol('Style','Text','Units','Normalized','Position',[0.1,0.1,0.8,0.8]);
+        global textt
+        textt = texthand;
+        figure(2)
+        big_part = gca;
+        
+        % ------------------------ Carry out inversion ----------------------------
+        
+        main(input,mesh);
+        
+        
+%         catch
+%             disp('error in inversion... move on to next dataset')
+%         end
+        clear input mesh textt big_part texhand fem
+
+        
+    end
+    
+end
