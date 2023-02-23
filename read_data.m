@@ -52,6 +52,16 @@ elseif input.res2d_flag == 2    % Loke dipole dipole
     end
     % round to avoid problems
 %     tmp_d = round(10000*tmp_d)./10000;
+elseif input.res2d_flag == 3 % resipy input - data stored inside named folder
+    [in_path, in_file, in_ext] = fileparts(input.mes_in);
+    r2_folder = fullfile(in_path, in_file);
+    
+    el_pos = importdata(fullfile(r2_folder, 'electrodes.dat'));
+    el_pos(:, 2) = []; % remove y dimension as 2d
+    
+    tmp_d1 = importdata(fullfile(r2_folder, 'R2_forward.dat'),' ',1);
+    tmp_d1 = tmp_d1.data;
+    tmp_d = [el_pos(tmp_d1(:,2),:), el_pos(tmp_d1(:,3),:), el_pos(tmp_d1(:,4),:), el_pos(tmp_d1(:,5),:), tmp_d1(:,7)];
 end
 
 

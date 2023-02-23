@@ -2,12 +2,13 @@
 function [input, mesh, final, fem,ex,t_fwd,t_inv] = main_tgv(input,mesh,tgv_itr,fem)
 ex=0;
 final=[];
+t_inv = 0;
 
-if tgv_itr ==1
+if tgv_itr == 1
     
-    if matlabpool('size') == 0
-        matlabpool open
-    end
+    %     if matlabpool('size') == 0
+    %         matlabpool open
+    %     end
     
     % mesh.Rd = 1;
     
@@ -20,10 +21,12 @@ if tgv_itr ==1
         end
         input.stdev_error(input.stdev_error == 0) = 0.5*min(input.stdev_error(input.stdev_error>0)); % ensures no infinities
         input.Wd=diag(1./input.stdev_error);
+    elseif input.wd_flag == 2
+        input.Wd = spdiags(input.real_data*input.noise_dev, 0, length(input.real_data), length(input.real_data));
     else
         input.Wd = diag(ones(length(input.real_data),1));
     end
-
+    
     
     if isfield(input,'lc_flag') == 0  % creates an lc flag if not present
         input.lc_flag = 0;
@@ -54,47 +57,50 @@ clear global textt
 
 if input.time_lapse_flag==0
     for ip_cnt=1:input.ip_num
-        for itr=1:input.itn+1
+        for itr = tgv_itr
             tic
             % skips first section after first sp1 itr to avoid
             % double-calculating
-            if tgv_itr==1 || (tgv_itr~=1 && itr~=1)
-                % fem, convergence checks
-                if tgv_itr > 1
-                    fem=mes_control_fast(2,input,mesh,fem,0); % avoids restarting from half space
-                else
-                    fem=mes_control_fast(itr,input,mesh,fem,0);
-                end
-                t_fwd = toc;
-                
-                [ex,fem,mesh]=rms(itr,ip_cnt,input,mesh,fem);
-                final=info_save(0,itr,ip_cnt,input,mesh,fem,final);
-                if (ex==1 || ex==2) ;
-                    if itr ~= input.itn+1;
-                        mesh.res_param1 = mesh.res_param2;
-                    end
-                    final.itr=itr-1;
-                    break;
-                end         % Exit as per RMS results
-            end
-            % New itr of inversion
-            tic
-            if input.inv_flag ==-1 || input.inv_flag == -2 || input.inv_flag == -3;
-                mesh = IRLS(input, fem, mesh);
-                %                 disp('IRLS')
-            end
+            % fem, convergence checks
+            fem=mes_control_fast(itr,input,mesh,fem,0);
+            t_fwd = toc;
+            
+            [ex,fem,mesh]=rms(itr,ip_cnt,input,mesh,fem); % rms_tgv
+
+        end
+        % New itr of inversion
+        tic
+        
+        
+        if input.m_init_flag ~= 2 && itr == 1 % skip itr 1 inversion and insert initial model
+            mesh.res_param1 = mesh.m_init;
+            final=info_save(0,itr,ip_cnt,input,mesh,fem,final);
+            mesh.ls = 0;
+        else
+            t_inv = toc;
+            
+            
             if input.lc_flag == 1
                 [input,mesh] = l_curve(mesh,fem,input,itr);
-            else
-                [input]=update_lagran(itr,ip_cnt,0,input);
+            elseif input.line_search_flag == 0
+                [input]=update_lagran(itr,ip_cnt,1,input);
             end
+            final=info_save(0,itr,ip_cnt,input,mesh,fem,final);
+            if (ex==1 || ex==2) ;
+                if itr ~= input.itn+1;
+                    mesh.res_param1 = mesh.res_param2;
+                end
+                final.itr=itr-1;
+                break;
+            end         % Exit as per RMS results          
             [mesh,fem,input]=invert_cntr(itr,1,ip_cnt,input,mesh,fem);
             t_inv = toc;
-            [fem,mesh,input]=prop_change(itr,input,mesh,fem);
-            save('itr_results','mesh','input')
-            auto_contour(1,itr,ip_cnt,input,mesh,fem); colormap cool;
-            
         end
+        [fem,mesh,input]=prop_change(itr,input,mesh,fem);
+        %             save('itr_results','mesh','input')
+        auto_contour(1,itr,ip_cnt,input,mesh,fem); colormap cool;
+        
+        
         if itr==input.itn+1; final.itr=itr;end
         if input.ip_flag==1
             [input,mesh]=ip_calc(input,mesh);

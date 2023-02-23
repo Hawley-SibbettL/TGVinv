@@ -5,7 +5,7 @@
 % 	   ******************************************************************** */
 
 
-function [ex,fem,mesh]=rms(itr,ip_cnt,input,mesh,fem)
+function [ex,fem,mesh]=rms_tgv(itr,ip_cnt,input,mesh,fem)
 
 % global textt
 fem.rms_sum1=0;
@@ -23,32 +23,34 @@ disp(sprintf('RMS=>%f',fem.rms_sum1));
 
 
 % Update for first iteration
-if (itr==1)
+if isempty(fem.rms_sum1)
     fem.rms_sum2=fem.rms_sum1;
 end
 
 
 
-% if (fem.rms_sum1>fem.rms_sum2 && itr>1)
-%     ka=sprintf('Divergence occured. Old RMS=>%f New Rms=>%f',fem.rms_sum2,fem.rms_sum1);
-%     %         set(textt,'String',ka);drawnow;
+if (fem.rms_sum1>fem.rms_sum2 && itr>1)
+    ka=sprintf('Divergence occured. Old RMS=>%f New Rms=>%f',fem.rms_sum2,fem.rms_sum1);
+    %         set(textt,'String',ka);drawnow;
 %     fem.rms_sum1=fem.rms_sum2;
-%     
-%     % If we have IP data update everything to continue with IP inversion
-%     if input.ip_flag==0 || (input.ip_flag==1 && ip_cnt==2)
-%         ex=1;
-%     elseif input.ip_flag==1 && ip_cnt==1
-%         ex=2;
-%     end
-%     
-% end
+    fem.rms_sum2=fem.rms_sum1;
+    
+    % If we have IP data update everything to continue with IP inversion
+    if input.ip_flag==0 || (input.ip_flag==1 && ip_cnt==2)
+        ex=1;
+    elseif input.ip_flag==1 && ip_cnt==1
+        ex=2;
+    end
+    
+end
 
 
 tmp11=abs((fem.rms_sum2-fem.rms_sum1)/fem.rms_sum2);
 
-if ( tmp11<(input.conv_rate/100)  && itr > 3)
+if ( tmp11<(input.conv_rate/100)  && itr>2)
     disp('Very slow convergence');
-    fem.rms_sum1=fem.rms_sum2;
+%     fem.rms_sum1=fem.rms_sum2;
+    fem.rms_sum2=fem.rms_sum1;
     
     % If we have IP data update everything to continue with IP inversion
     if input.ip_flag==0 || (input.ip_flag==1 && ip_cnt==2)

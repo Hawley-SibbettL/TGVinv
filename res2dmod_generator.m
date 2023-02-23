@@ -1,9 +1,8 @@
 function res2dmod_generator()
 close all
 % Variable inputs
-username ='bgsvisluke2';
-in.filename = ['C:\Users\',username,'\OneDrive - The University of Nottingham\UoN Box Migration\Data\New TGV test models\res2D_input'];
-in.n_electrode = 46;
+in.filename = ['D:\TGV_revision\thesis\mesh_define\res2dmod files\res2D_input'];
+in.n_electrode = 50;
 in.electrode_spacing = 0.75;
 % % high res
 % in.n_electrode = 86;
@@ -22,12 +21,21 @@ in.n_layers = length(in.depth_values);
 % IP4DI grid
 %load('C:\Users\bgsvisluke2\OneDrive - The University of Nottingham\UoN Box Migration\Coupled TGV results\Simulations\large gamma\Old\vf_gp_l1_05lag_ref','final')
 % refined normalmesh
-load(['C:\Users\',username,'\OneDrive - The University of Nottingham\UoN Box Migration\Coupled TGV results\Paper\simulations\gauss_fault_l1_15lag_fd'],'final') % ref/not ref to generate refined/normal images
+% load(['C:\Users\',username,'\OneDrive - The University of Nottingham\UoN Box Migration\Coupled TGV results\Paper\simulations\gauss_fault_l1_15lag_fd'],'final') % ref/not ref to generate refined/normal images
 % 2res
-% load(['C:\Users\',username,'\OneDrive - The University of Nottingham\UoN Box Migration\Coupled TGV results\Paper\simulations 2res\new_diag_block3_2res_l1_15lag'],'final') % ref/not ref to generate refined/normal images
+% load(['C:\Users\bgsvisluke2\OneDrive - The University of Nottingham\UoN Box Migration\TGV_revision\gauss150y8a4n_2pc_l2_10lag'],'final') % ref/not ref to generate refined/normal images
+load('D:\TGV_revision\thesis\periodic\golden_test\reg mesh\gb2_long2_1pc_l1_ls0lag');
+
+
+
+% load(['D:\TGV_revision\thesis\mesh_define\big_block_l1_ls0lag']) % uniform square mesh
+% load(['D:\TGV_revision\thesis\mesh_define\big_block_l1_100lag']) % uniform rectangular mesh
+% load(['D:\TGV_revision\thesis\periodic\golden_test\gb1_1pc_l1_ls0lag']) % uniform refined mesh
+
+
 % Hres
 % load(['C:\Users\',username,'\OneDrive - The University of Nottingham\UoN Box Migration\Coupled TGV results\Paper\simulations\block_edge2_Hres2_l22_15lag_fd_gd2'],'final') % ref/not ref to generate refined/normal images
-
+% load(['C:\Users\',getenv('username'),'\OneDrive - The University of Nottingham\UoN Box Migration\TGV_revision\resipy\periodic\plume_layer_rpy1_1pc_l1_ls11lag'])
 
 
 % Create model grid - res_grid gives the resistivities on the lines
@@ -84,12 +92,12 @@ ip4di_im = reshape(ip4di_interpolant(final.param_x, final.param_y),length(unique
 
 % save('C:\Users\bgsvisluke2\OneDrive - The University of Nottingham\UoN Box Migration\Data\New TGV test models\new_diag_block3_2res','ip4di_im','X-edge','Y_edge','depth','res_im','rho','thresh_im','x_centre','y_centre') %Too risky - use% command window
 
-figure(4)
-surf(X_ip4di, Y_ip4di, log10(ip4di_im)); view([0,0,1]);
-colorbar 
-axis image
-% shading(gca,'interp')
-set(gca,'ydir','reverse')
+% figure(4)
+% surf(X_ip4di, Y_ip4di, log10(ip4di_im)); view([0,0,1]);
+% colorbar 
+% axis image
+% % shading(gca,'interp')
+% set(gca,'ydir','reverse')
 
 if exist('thresh_im','var')
     out_im = thresh_im;
@@ -158,7 +166,14 @@ fclose(fid);
 depth = y_centre;
 rho = thresh_im(:,1);
 
+% save('C:\Users\bgsvisluke2\OneDrive - The University of Nottingham\UoN Box Migration\Data\resipy_models\gauss_rpy1_ref','ip4di_direct','res_im')
+% save('D:\TGV_revision\thesis\mesh_define\gauss150y_refgrid','ip4di_im','ip4di_direct','X_edge','Y_edge','depth','res_im','rho','thresh_im','x_centre','y_centre')
 
+figure
+surf(X_ip4di, Y_ip4di, log10()); view([0,0,1]); colorbar;axis image; set(gca, 'ydir', 'reverse')
+
+param_x = final.param_x;
+param_y = final.param_y;
 
 end
 
@@ -196,35 +211,42 @@ function [res_im, thresh_im, res_vec, threshold_bounds,ip4di] = vf_g(res_im,  X_
 num_thresh = 14;
 
 % Gaussian parameters
-mu1 = [30,.6];%[30, 1];   % position of gaussian centre (m)
-sigma1 = [5, 1];%[5, 1.5];      % std, in m. Note - will not be a true gaussian due to block lengthening
-A1 = 100;         % Amplitude of gaussian inclusion above background (ohm m)
+mu1 = [10 + 5, 3];%[30, 1];   % position of gaussian centre (m)
+sigma1 = [2, 1];%[5, 1.5];      % std, in m. Note - will not be a true gaussian due to block lengthening
+A1 = 4000;         % Amplitude of gaussian inclusion above background (ohm m)
 mu2 = [20, 1.8];
 sigma2 = [6, 1];
-A2 = 100;
+A2 = 00;
 mu3 = [12, 3];
 sigma3 = [5, 1];     
-A3 = 100;        
+A3 = 00;        
 mu4 = [4, 1.8];
 sigma4 = [3.5, 0.7];
-A4 = 100;
+A4 = 00;
 mu5 = [16, 2.2];
-sigma5 = [4, 0.8];
+sigma5 = [4, 1];
 A5 = 0;
 
-block_flag = 1;
+block_flag = 1; % 0,1 or 2 for 0,1,2 blocks. 2 block only on flat bg
+exclusive_block_flag = 0; % = 1 if only blocks included on flat bg
 
 % linear layer
 % horizontal layer with linear transition from rho1-rho2
-rho1 = 10;  % Upper res
-rho2 = 10;  % Lower res
-ub = 10;     % layer ub
-lb = 30;   % layer lb
-res_im(X_centre <= ub) = rho1;
-res_im(X_centre >= lb) = rho2;
-transition_zone = (X_centre <= lb)&(X_centre > ub);
-% res_im(transition_zone) = ((rho1) + ((rho2)-(rho1)).*(X_centre(transition_zone)-ub)/(lb-ub));
-res_im(transition_zone) = 10.^(log10(rho1) + (log10(rho2)-log10(rho1)).*(X_centre(transition_zone)-ub)/(lb-ub));
+rho1 = 100;  % Upper res
+rho2 = 100;  % Lower res
+% want to find the mean value of the cells at the layer boundary
+layer_boundary = 3.8;
+ub = layer_boundary;     % layer ub
+lb = layer_boundary;   % layer lb
+res_im(Y_centre <= ub) = rho1;
+res_im(Y_centre > lb) = rho2;
+transition_zone = (Y_centre <= lb)&(Y_centre > ub);
+% res_im(transition_zone) = ((rho1) +
+% ((rho2)-(rho1)).*(X_centre(transition_zone)-ub)/(lb-ub)); % x boundary
+% res_im(transition_zone) = 10.^(log10(rho1) +
+% (log10(rho2)-log10(rho1)).*(Y_centre(transition_zone)-ub)/(lb-ub)); % y
+% boundary
+res_im(transition_zone) = rho2; % non interpolated version
 
 gaussian_inclusion = Gauss(mu1,sigma1,A1,Xfine,Yfine) + Gauss(mu2,sigma2,A2,Xfine,Yfine) + Gauss(mu3,sigma3,A3,Xfine,Yfine) + Gauss(mu4,sigma4,A4,Xfine,Yfine) + Gauss(mu5,sigma5,A5,Xfine,Yfine);
 res_im = res_im + interp2(Xfine,Yfine,gaussian_inclusion,X_centre,Y_centre,'linear');
@@ -233,36 +255,97 @@ res_im = res_im + interp2(Xfine,Yfine,gaussian_inclusion,X_centre,Y_centre,'line
 
 bgr_res = [rho1, rho2];
 
-% Discretise resistivity levels for res2Dmod (max 16)
+%Discretise resistivity levels for res2Dmod (max 16)
 threshold_bounds = multithresh((res_im),num_thresh);
 % threshold_bounds = 10.^multithresh(log10(res_im),num_thresh);
 res_vec = [threshold_bounds(1),(threshold_bounds(2:end) + threshold_bounds(1:end-1))/2,threshold_bounds(end)];
-
-% % make sure background resitivities are reflected in the theshold
-% for i = 1:length(bgr_res)
-%     [~, bgr_ind] = min(abs(res_vec-bgr_res(i)));
-%     res_vec(bgr_ind) = bgr_res(i);    
-% end
-
+% make sure background resitivities are reflected in the theshold
+for i = 1:length(bgr_res)
+    [~, bgr_ind] = min(abs(res_vec-bgr_res(i)));
+    res_vec(bgr_ind) = bgr_res(i);    
+end
 thresh_im = imquantize(res_im,threshold_bounds,res_vec);
+
 
 % Add solid inclusion afterwards
 % res_im(interp2(Xfine,Yfine,Gauss(mu5,sigma5,A5,Xfine,Yfine),X_centre,Y_centre,'linear')>0.33*A5) = rho1 + A5;
 % thresh_im(interp2(Xfine,Yfine,Gauss(mu5,sigma5,A5,Xfine,Yfine),X_centre,Y_centre,'linear')>0.33*A5) = rho1 + A5;
 
 % Add a solid block
-if block_flag == 1
-    rho_b = 300;
-    xbC = 21; % x block centre
-    xbL = 3; % x block length
-    ybC = 2;
-    ybL = 2.2;
+if block_flag ~= 0
+    rho_b = 8000;
+    xbC = 21 + 5; % x block centre
+    xbL = 3.5; % x block length
+    ybC = 2.7;
+    ybL = 2.5;
     xb = [xbC - xbL/2, xbC + xbL/2];
     yb = [ybC - ybL/2, ybC + ybL/2];
-    res_im(X_centre > xb(1) & X_centre < xb(2) & Y_centre > yb(1) & Y_centre < yb(2)) = rho_b;
-%     thresh_im(:,:) = rho1; % for block on solid background
-    thresh_im(X_centre > xb(1) & X_centre < xb(2) & Y_centre > yb(1) & Y_centre < yb(2)) = rho_b;
+    indb = X_centre >= xb(1) & X_centre <= xb(2) & Y_centre >= yb(1) & Y_centre <= yb(2);
+    
+
+    
+    if exclusive_block_flag == 1
+        res_im(:,:) = rho1;
+        res_vec = [rho1, rho_b];
+        threshold_bounds = mean(res_vec);
+        thresh_im = res_im;
+    end
+    
+    thresh_im(indb) = rho_b;
+    res_im(indb) = rho_b;
+    
+   
+    if block_flag ==  2
+        % add a second block (solid background only for now)
+        rho_b2 = 80;
+        xbC2 = 10;
+        xbL2 = 5;
+        ybC2 = 4.5;
+        ybL2 =  2.2;
+        xb2 = [xbC2- xbL2/2, xbC2 + xbL2/2];
+        yb2 = [ybC2 - ybL2/2, ybC2 + ybL2/2];
+        indb2 = X_centre >= xb2(1) & X_centre <= xb2(2) & Y_centre >= yb2(1) & Y_centre <= yb2(2);
+        
+        res_vec = sort([res_vec, rho_b2]);
+        threshold_bounds = [mean(res_vec(1:2)), mean(res_vec(2:3))];
+        thresh_im(indb2) = rho_b2;
+        res_im(indb2) = rho_b2;
+    end
+    
+    
+    
+%     % add log-mean transitions at block edges
+%     indxb = find(X_centre(1, :) > xb(1) & X_centre(1, :) < xb(2));
+%     indyb = find(Y_centre(:, 1) > yb(1) & Y_centre(:, 1) < yb(2));
+%     
+%     % get indices of transition cells
+%     [~, indxl] = min(abs(X_centre(1, :) - xb(1)), [], 2);% lower x
+%     [~, indxu] = min(abs(X_centre(1, :) - xb(2)), [], 2);% upper x
+%     [~, indyl] = min(abs(Y_centre(:, 1) - yb(1)), [], 1);% lower y
+%     [~, indyu] = min(abs(Y_centre(:, 1) - yb(2)), [], 1);% upper y
+%     % add transition log mena resistivity at boundaries
+%     x_width = (X_centre(1, indxl + 1) - X_centre(1, indxl - 1))/2;
+%     xl_weight = x_width/2 + xb(1) - X_centre(1, indxl);
+%     xu_weight = x_width/2 + xb(2) - X_centre(1, indxu);
+%     res_im(indyb, indxl) = 10.^(xl_weight*log10(rho_b) + (1-xl_weight)*log10(rho1))./2;
+%     res_im(indyb, indxu) = 10.^(xu_weight*log10(rho_b) + (1-xl_weight)*log10(rho1))./2;    
+% 
+%     y_width = (Y_centre(indyl + 1, 1) - Y_centre(indyl - 1, 1))/2;
+%     yl_weight = y_width/2 + yb(1) - Y_centre(indyl, 1);
+%     yu_weight = y_width/2 + yb(2) - Y_centre(indyu, 1);
+%     res_im(indyl, indxb) = 10.^(yl_weight*log10(rho_b) + (1-yl_weight)*log10(rho1))./2;
+%     res_im(indyu, indxb) = 10.^(yu_weight*log10(rho_b) + (1-yu_weight)*log10(rho1))./2;      
+% 
+%     % fill in the corners
+%     res_im(indyl, indxl) = 10.^( (yl_weight*xl_weight)*log10(rho_b) + (1 - ((yl_weight*xl_weight)*log10(rho_b)))*log10(rho1) );
+%     res_im(indyl, indxu) = 10.^( (yl_weight*xu_weight)*log10(rho_b) + (1 - ((yl_weight*xu_weight)*log10(rho_b)))*log10(rho1) );
+%     res_im(indyu, indxl) = 10.^( (yu_weight*xl_weight)*log10(rho_b) + (1 - ((yu_weight*xl_weight)*log10(rho_b)))*log10(rho1) );
+%     res_im(indyu, indxu) = 10.^( (yu_weight*xu_weight)*log10(rho_b) + (1 - ((yu_weight*xu_weight)*log10(rho_b)))*log10(rho1) );
+
 end
+
+
+
 % add a second, inner block (for gradual boundary)
 % rho_b = 100;
 % xbL2 = xbL - 1.1; % x block length
@@ -284,21 +367,75 @@ end
 
 % directly calculate onto ip4di mesh
 ip4di = final.res_param1(:,1);
-ip4di(final.param_x <= ub) = rho1;
-ip4di(final.param_x >= lb) = rho2;
-transition_zone = (final.param_x <= lb)&(final.param_x > ub);
-ip4di(transition_zone) = 10.^(log10(rho1) + (log10(rho2)-log10(rho1)).*(X_centre(transition_zone)-ub)/(lb-ub));
+ip_y = unique(final.param_y);
+[~, ip_boundary] = min(abs(ip_y - layer_boundary));
 
-ip4di = ip4di + Gauss(mu1,sigma1,A1,final.param_x,final.param_y) + Gauss(mu2,sigma2,A2,final.param_x,final.param_y) + Gauss(mu3,sigma3,A3,final.param_x,final.param_y) + Gauss(mu4,sigma4,A4,final.param_x,final.param_y) + Gauss(mu5,sigma5,A5,final.param_x,final.param_y);
+ip4di(final.param_y <= ub) = rho1;
+ip4di(final.param_y >= lb) = rho2;
+% transition_zone = (final.param_y <= lb)&(final.param_y > ub);
+% ip4di(transition_zone) = 10.^(log10(rho1) + (log10(rho2)-log10(rho1)).*(Y_centre(transition_zone)-ub)/(lb-ub));
 
-if block_flag == 1
-    ip4di(final.param_x > xb(1) & final.param_x < xb(2) & final.param_y > yb(1) & final.param_y < yb(2)) = rho_b;
+% set the cells including the layer boundary to the log mean value
+transition_zone = (final.param_y == ip_y(ip_boundary)); 
+tz_width = (ip_y(ip_boundary+1) - ip_y(ip_boundary-1))/2;
+upper_weight = (layer_boundary - ip_y(ip_boundary-1))/(2*tz_width);
+% ip4di(transition_zone) = 10.^(upper_weight*log10(rho1) + (1-upper_weight)*log10(rho2))./2; % here take the mean of the resistivity accross the edge
+ip4di(transition_zone) = rho2; % non interpolated result
+
+if exclusive_block_flag == 0
+    ip4di = ip4di + Gauss(mu1,sigma1,A1,final.param_x,final.param_y) + Gauss(mu2,sigma2,A2,final.param_x,final.param_y) + Gauss(mu3,sigma3,A3,final.param_x,final.param_y) + Gauss(mu4,sigma4,A4,final.param_x,final.param_y) + Gauss(mu5,sigma5,A5,final.param_x,final.param_y);
 end
 
-threshold_bounds_ip4di = multithresh((ip4di),num_thresh);
-% threshold_bounds = 10.^multithresh(log10(res_im),num_thresh);
-res_vec_ip4di = [threshold_bounds(1),(threshold_bounds(2:end) + threshold_bounds(1:end-1))/2,threshold_bounds(end)];
-ip4di = imquantize(ip4di,threshold_bounds_ip4di,res_vec_ip4di);
+if block_flag ~= 0
+    ip4di(final.param_x > xb(1) & final.param_x < xb(2) & final.param_y > yb(1) & final.param_y < yb(2)) = rho_b;
+    
+    if block_flag == 2
+        ip4di(final.param_x > xb2(1) & final.param_x < xb2(2) & final.param_y > yb2(1) & final.param_y < yb2(2)) = rho_b2;    
+    end
+    
+%     x = unique(final.param_x);
+%     y = unique(final.param_y);
+%     
+%     
+%     indb = X_centre > xb(1) & X_centre < xb(2) & Y_centre > yb(1) & Y_centre < yb(2);
+%     
+%     ip4di(indb) = rho_b;
+%     
+    
+%     % add log-mean transitions at block edges
+%     indxb = find(x > xb(1) & x < xb(2));
+%     indyb = find(y > yb(1) & y < yb(2));
+%     
+%     % get indices of transition cells
+%     [~, indxl] = min(abs(x - xb(1)));% lower x
+%     [~, indxu] = min(abs(x - xb(2)));% upper x
+%     [~, indyl] = min(abs(y - yb(1)));% lower y
+%     [~, indyu] = min(abs(y - yb(2)));% upper y
+%     % add transition log mena resistivity at boundaries
+%     x_width = (x(indxl + 1) - x(indxl - 1))/2;
+%     xl_weight = x_width/2 + xb(1) - x(indxl);
+%     xu_weight = x_width/2 + xb(2) - x(indxu);
+%     ip4di(final.param_x == x(indxl) & final.param_y < yb(2) & final.param_y > yb(1)) = 10.^(xl_weight*log10(rho_b) + (1-xl_weight)*log10(rho1))./2;
+%     ip4di(final.param_x == x(indxu) & final.param_y < yb(2) & final.param_y > yb(1)) = 10.^(xu_weight*log10(rho_b) + (1-xl_weight)*log10(rho1))./2;    
+% 
+%     y_width = (y(indyl + 1) - y(indyl - 1))/2;
+%     yl_weight = y_width/2 + yb(1) - y(indyl);
+%     yu_weight = y_width/2 + yb(2) - y(indyu);
+%     ip4di(final.param_y == y(indyl) & final.param_x < xb(2) & final.param_x > xb(1)) = 10.^(yl_weight*log10(rho_b) + (1-yl_weight)*log10(rho1))./2;
+%     ip4di(final.param_y == y(indyu) & final.param_x < xb(2) & final.param_x > xb(1)) = 10.^(yu_weight*log10(rho_b) + (1-yu_weight)*log10(rho1))./2;      
+% 
+%     % fill in the corners
+%     ip4di(final.param_x == x(indxl) & final.param_y == y(indyl)) = 10.^( (yl_weight*xl_weight)*log10(rho_b) + (1 - ((yl_weight*xl_weight)*log10(rho_b)))*log10(rho1) );
+%     ip4di(final.param_x == x(indxu) & final.param_y == y(indyl)) = 10.^( (yl_weight*xu_weight)*log10(rho_b) + (1 - ((yl_weight*xu_weight)*log10(rho_b)))*log10(rho1) );
+%     ip4di(final.param_x == x(indxl) & final.param_y == y(indyu)) = 10.^( (yu_weight*xl_weight)*log10(rho_b) + (1 - ((yu_weight*xl_weight)*log10(rho_b)))*log10(rho1) );
+%     ip4di(final.param_x == x(indxu) & final.param_y == y(indyu)) = 10.^( (yu_weight*xu_weight)*log10(rho_b) + (1 - ((yu_weight*xu_weight)*log10(rho_b)))*log10(rho1) );
+%     
+end
+
+% threshold_bounds_ip4di = multithresh((ip4di),num_thresh);
+% % threshold_bounds = 10.^multithresh(log10(res_im),num_thresh);
+% res_vec_ip4di = [threshold_bounds(1),(threshold_bounds(2:end) + threshold_bounds(1:end-1))/2,threshold_bounds(end)];
+% ip4di = imquantize(ip4di,threshold_bounds_ip4di,res_vec_ip4di);
 
 end
 

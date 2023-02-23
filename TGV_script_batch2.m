@@ -5,43 +5,36 @@ close all
 % Input data files and settings here
 
 % Filename and pathname of file
-source_files = {'gb2_long2_1pc.dat'}; % cell array of filenames (strings) to invert
-pathname =  ['D:\TGV_revision\thesis\mesh_define\res2dmod files'];% ['D:\data\2d_quarry_data'];
-out_path = ['D:\TGV_revision\thesis\periodic\golden_test\tgv l2 triple init\reg mesh\wd repeat\strong_cool 2'];
-append_txt = ''; % append string to filename
+source_files = {'clifton.inv'}; % cell array of filenames (strings) to invert
+pathname = 'C:\Users\Luke\Documents\MATLAB\ip4Di_TGV_PAPER\TGV data\2d_quarry_data';
+out_path = 'C:\Users\Luke\Documents\MATLAB\ip4Di_TGV_PAPER\TGV results\no_ghost\w75_real';
+append_txt = ''; % used to add additional text tFo the output filename
 
 % default file format is IP4DI files (.d)- see IP4DI manual50
 % can also take .dat filetypes as generated from res2dinv
-res2d_flag = 2; % 0 - .d file; 1 - .dat file, general format. 2 - .dat file dipole-dipole format
-wd_flag = 2; % 0 - no data errors in inversion. 1 - use errors from input file. 2- use flat % given by noise_dev
-noise_dev = 0.01; % percentage error applied to all measurements if wd=2
+res2d_flag = 1; % 0 - .d file; 1 - .dat file, general format. 2 - .dat file dipole-dipole format
+wd_flag = 0; % 0 - no data errors in inversion. 2 - use errors from input file
 data_type = 1; % 1 = apparent resistivity, 2 = resistance
-res2d_headerlines = 6; % manually input number of headerlines in .dat file. [synth/imager = 6/12]
-m_init_flag = 4; % Initialisation of m: [1 - interpolated pseudosection][2 - l2 iteration from homogeneous half space] [3 - vertically faulted half space] [4 - loads a result from previous inversion (hardcoded)]
-p_init_flag = 1; % choice of how to initialise p in sp2. [0 is p = 0] [1 is p = grad(m)] [2 is result of an l2 iteration strting from p = 2]
-p_conv = 1e-5; % 0.01 before
-mu = {1, 2, 1.15, 1.3, 1.5, 1.65, 1.8, 2.25, 2.5, 0.8, 3, 2.75, 0.65}; % TGV trade off parameter. Cell array allows multiple values
-lagrn_in = [0.00625*2]; % damping parameter (lambda)
-itn = 16; % number of gauss newton iterations in inversion
+res2d_headerlines = 12; % manually input number of headerlines in .dat file. [synth/imager = 6/12]
+p_init_flag = 2; % choice of how to initialise p in sp2. [0 is p = 0] [1 is p = grad(m)] [2 is result of an l2 iteration strting from p = 2]
+p_conv = 0.001; % 0.01 before
+mu = {2}; % TGV trade off parameter. Cell array allows multiple values
+lagrn_in = [0.05]; % damping parameter (lambda)
+itn = 10; % number of gauss newton iterations in inversion
 
 % Advanced options
-ref_flag = 0;  % defines cell width. 0 - 1 cell per electrode. 1 - 2 cells per electrode 
+ref_flag = 0;  % defines cell width. 0 - 1 cell per electrode. 1 - 2 cells per electrode (default)
 manual_flag = 1; % 0 - default. 1 - mesh spacing and depth can be customised by modifying depth_calculator.m
 extend_mesh_flag = 1; % 0 - default. 1 - extends mesh outside
-line_search_flag = 0; % 0 - cooling off scheme for lambda. 1 - line search along lambda direction. 2 - line search along dm direction. 3 - line search along both. 4- golden section line search along lambda
-ls_limit_flag = 1; % 0 - lambda can be small; 1 - lambda limited to 0.01 (or similar) minimum a la Loke
-lagrn_ls = []; % lagrn values for line search
-target_decrease = 0; % target decrease in rms during line search 
-lagrn_w = [0.75, 1.25]; % w_lagrn values along line search (fraction of lambda to travel in search direction)
+line_search_flag = 3; % 0 - cooling off scheme for lambda. 1 - line search along lambda direction. 2 - line search along dm direction. 3 - line search along both
+lagrn_ls = [0.0005, 0.001, 0.003, 0.005, 0.007, 0.01, 0.03, 0.05, 0.07, 0.11, 0.15, 0.2]; % lagrn values for line search
+lagrn_w = [0.75]; % w_lagrn values along line search (fraction of lambda to travel in search direction)
 line_search_obj_flag = 0; % calculates and saves objective functions during line search (if selected)
+dm_bc = 1; % order of dm neumann bc
 l1_data_flag = 0; % 0 - l2 data term, 1 - l1 data term
-diff_type = 1; % 1 - forward-backward. 2 - central. 3 - central, symmetrical (m_{i+1/2} - m_{i-1/2}) 
-periodic_bc = 1; % = 1 for periodic bc, moderates diff_type =1 only
-n_ext = 2; % number of extra edge cells. 2 usually.
+diff_type = 1;% 1 - forward-backward. 2 - central. 3 - central, symmetrical (m_{i+1/2} - m_{i-1/2})
+n_ext = 8; % number of extra edge cells. 2 usually.
 ghost_flag = 0; % = 1 to use ghost points
-dm_bc = 1; % order of dm neumann bc if ghost points are used 1 or 2
-diff_weight_flag = 0; % = 1 to weight finited differences by cell spacing
-
 %% Inversion process begins
 curr_dir = pwd;
 
@@ -51,7 +44,7 @@ for k = 1:length(lagrn_in)
     for q = 1:length(mu)
         
         for r = 1:length(source_files)
-            clearvars -except q r i source_files periodic_bc ls_limit_flag ghost_flag m_init_flag n_ext res2d_headerlines pathname out_path curr_dir lagr_txt lagrn mu ref_flag damp_surface_flag append_txt res2d_flag wd_flag data_flag itn manual_flag extend_mesh_flag data_type p_init_flag p_conv k lagrn_in lagrn line_search_flag dm_bc lagrn_ls lagrn_w l1_data_flag line_search_obj_flag diff_type target_decrease noise_dev diff_weight_flag
+            clearvars -except q r i source_files ghost_flag n_ext res2d_headerlines pathname out_path curr_dir lagr_txt lagrn mu ref_flag damp_surface_flag append_txt res2d_flag wd_flag data_flag itn manual_flag extend_mesh_flag data_type p_init_flag p_conv k lagrn_in lagrn line_search_flag dm_bc lagrn_ls lagrn_w l1_data_flag line_search_obj_flag diff_type
             close all
             
             
@@ -65,9 +58,7 @@ for k = 1:length(lagrn_in)
             damp_surface_flag = 0; % attempt to damp
             input.topography_flag = 0; % My flag for reading topography straight from file.
             input.diff_type = diff_type;
-            input.n_ext = n_ext;
-            
-            input.diff_weight_flag = diff_weight_flag;
+            input.n_ext = n_ext; 
             
             input.tgv_lagrn = mu{q};
             input.lagrn = lagrn;
@@ -87,8 +78,11 @@ for k = 1:length(lagrn_in)
                 pathname2 = pathname;
             end
             
-
-            lagr_txt = [' lagls0','_tgv_lag',num2str(10*input.tgv_lagrn),append_txt];
+            if line_search_flag == 0
+                lagr_txt = [' lag',num2str(1000*input.lagrn,'%d'),'_tgv_lag',num2str(10*input.tgv_lagrn),append_txt];
+            else
+                lagr_txt = [' lagls',num2str(length(lagrn_ls)),'_tgv_lag',num2str(10*input.tgv_lagrn),append_txt];
+            end
             input.batch_save = ['TGV ',short_filename,lagr_txt];
             
             mkdir(input.out_path,input.batch_save); % output folder
@@ -110,11 +104,6 @@ for k = 1:length(lagrn_in)
             input.p_conv = p_conv;
             input.line_search_obj_flag = line_search_obj_flag;
             input.ghost_flag = ghost_flag;
-            input.target_decrease = target_decrease;
-            input.periodic_bc = periodic_bc;
-            input.noise_dev = noise_dev;
-            input.m_init_flag = m_init_flag;
-            input.ls_limit_flag = ls_limit_flag;
             % Bypasses borehole detection currently.
             if ref_flag == 1;
                 input.refine_mesh_flag = 1;  % = 1 for cell widths equal to half electride spacing
@@ -193,49 +182,16 @@ for k = 1:length(lagrn_in)
             figure(2)
             big_part = gca;
             
-            % Alternate initialisations
-            if input.m_init_flag == 1
-                [~, nm, ~] = fileparts(filename);
-                if input.refine_mesh_flag == 1
-                    load( fullfile(pathname,'pseudosections',nm) )
-                else
-                    load( fullfile(pathname,'pseudosections',[nm, '_reg']) )
-                end
-                mesh.m_init = pseudosection; % pseudosection values
-            elseif input.m_init_flag == 4
-                % l2 solution
-%                 base_file = load('D:\TGV_revision\thesis\periodic\golden_test\reg mesh\gb2_long2_1pc_l2_ls0lag','final');
-%                 mesh.m_init = base_file.final.res_param1( :, 2 );
-                % l1 solution
-%                 base_file = load('D:\TGV_revision\thesis\periodic\golden_test\l2 itr1 init\reg mesh\step1_cool\gb2_long2_1pc_l1_ls0lag','final');
-%                 mesh.m_init = base_file.final.res_param1( :, end );  
-                % TGV mu dependent solution
-                base_file = load(['D:\TGV_revision\thesis\periodic\golden_test\tgv l2 solution init\reg mesh\wd repeat\strong_cool 2\TGV gb2_long2_1pc lagls0_tgv_lag',num2str(10*mu{q}),'\tgv_it_15_sp2'],'final');
-                mesh.m_init = base_file.final.res_param1( :, end );
-            elseif input.m_init_flag == 3 % split half space
-                mesh.m_init = repmat(mesh.mean_res, [size(mesh.param_x)]);
-                mesh.m_init(mesh.param_x > floor(max(mesh.param_x)/2)) = 10.^( log10(mesh.mean_res) + 0.1*log10(mesh.mean_res) );
-                mesh.m_init(mesh.param_x < floor(max(mesh.param_x)/2)) = 10.^( log10(mesh.mean_res) - 0.1*log10(mesh.mean_res) );
-            end
-            
-            
             % Computes gradient operators
             mesh=smooth_mtx_surface4(input,mesh);
-            % reverse direction of grad
-%             mesh.cx = circshift(-mesh.cx, 1); mesh.cy = circshift(-mesh.cy, 1); mesh.ctc2 = circshift(-mesh.ctc, 1); % try changing direction of C
             
             fem = struct();
-            
-
-            
             %         mesh=smooth_mtx_surface4(input,mesh);
             
             % ---------- TGV outer loop begins ------------------------------
             
             %         starting_res = mesh.res_param1;
             %     lagrn = 0.15;
-            
-            
             itr = 1;
             
             
@@ -248,17 +204,11 @@ for k = 1:length(lagrn_in)
                 
                 
                 % Done in main_tgv instead
-%                 input = update_lagran(itr,0,1,input);
+%                      input = update_lagran(itr,0,1,input);
                 
                 
                 input.itn = 1; % Perform only one main_tgv itr
                 input.lc_flag = 0;
-                
-                % Used in main calculation
-                mesh.gamma_p = 1e-12;               % cutoff for |x| -> 0
-                mesh.gamma_c = 1e-12;
-                mesh.gamma_d = 1e-15;
-                
                 
                 % Calls single Gauss-Newton iteration
                 [input, mesh, final, fem, ex, t_fwd, t_inv] = main_tgv(input,mesh,itr,fem);
@@ -270,7 +220,7 @@ for k = 1:length(lagrn_in)
                 save(['tgv_it_', num2str(itr), '_sp1'],'final')
                 cd(curr_dir);
                 
-                
+
                 
                 disp(['*** Iteration ', num2str(itr),' ***'])
                 
@@ -278,18 +228,18 @@ for k = 1:length(lagrn_in)
                 % -------- SUBPROBLEM 2 --------
                 % Fix model, update p
                 tic
-%                 if itr == input.tgv_itr; break; end
+                if itr == input.tgv_itr; break; end
                 
                 if input.ghost_flag == 1
-                    % add ghost points to apply bc to m
-                    [num_param, domain_ind, param_x, param_y, res_param] = neumann_bc(mesh.num_param, mesh.param_x, mesh.param_y, mesh.res_param1, [0, input.dm_bc]);
+                % add ghost points to apply bc to m
+                [num_param, domain_ind, param_x, param_y, res_param] = neumann_bc(mesh.num_param, mesh.param_x, mesh.param_y, mesh.res_param1, [0, input.dm_bc]);
                 else
                     num_param = mesh.num_param;
                     domain_ind = 1:num_param;
                     param_x = mesh.param_x;
                     param_y = mesh.param_y;
                     res_param = mesh.res_param1;
-                end
+                end 
                 
                 grad_mx = mesh.cx*log10(res_param);
                 grad_my = mesh.cy*log10(res_param);
@@ -307,70 +257,70 @@ for k = 1:length(lagrn_in)
                 end
                 
                 
-
+                % Used in main calculation
+                gamma_p = 1e-15;               % cutoff for |x| -> 0
+                gamma_c = 1e-15;
                 % Used in performance metrics
                 p1 = zeros(2*mesh.num_param,1);
                 rms_p = zeros(1,input.sp2_itr+1);
                 
                 % main sp2 loop
-%                 if itr ~= input.tgv_itr
+                if itr ~= input.tgv_itr
                     for i = 2:(input.sp2_itr+1)
                         
-                        if input.diff_type ~= 3
-                            if input.ghost_flag == 1
-                                % add ghost points to p. Ax p,m have same domain, cx, cy are
-                                % the same, but different bc (first order homogeneous neumann).
-                                [~, ~, ~, ~, p_tmp] = neumann_bc(mesh.num_param, mesh.param_x, mesh.param_y, [mesh.px, mesh.py], [0, 1]);
-                                px_tmp = p_tmp(:,1);
-                                py_tmp = p_tmp(:,2);
-                            else
-                                px_tmp = mesh.px;
-                                py_tmp = mesh.py;
-                            end
-
-                            % calculate weights
-                            if input.p_init_flag == 2 && i == 2 % l2 1st iteration as initialisation
-                                Rm = speye(length(grad_mx));
-                                Rp = speye(length(px_tmp));
-                            else
-                                Rm = spdiags(1./sqrt((grad_mx - px_tmp).^2 + (grad_my - py_tmp).^2 + mesh.gamma_c^2), 0, length(grad_mx), length(grad_mx));
-                                Rp = spdiags(1./sqrt((mesh.cx'*px_tmp).^2 + (mesh.cy'*py_tmp).^2 + 0.5*(mesh.cx'*py_tmp + mesh.cy'*px_tmp).^2 + mesh.gamma_p.^2), 0, length(px_tmp), length(px_tmp));
-                            end
-                            % Set up matrix equation for px, py and solve
-                            a11 = Rm + input.tgv_lagrn*(mesh.cx*Rp*mesh.cx' + 0.5*mesh.cy*Rp*mesh.cy');
-                            a12 = input.tgv_lagrn*0.5*mesh.cy*Rp*mesh.cx';
-                            a21 = input.tgv_lagrn*0.5*mesh.cx*Rp*mesh.cy';
-                            a22 = Rm + input.tgv_lagrn*(mesh.cy*Rp*mesh.cy' + 0.5*mesh.cx*Rp*mesh.cx');
-                            b1 = Rm*mesh.cx*log10(res_param);
-                            b2 = Rm*mesh.cy*log10(res_param);
-                            
-                            % Domain_ind first
-                            a11 = a11(domain_ind, domain_ind);
-                            a12 = a12(domain_ind, domain_ind);
-                            a21 = a21(domain_ind, domain_ind);
-                            a22 = a22(domain_ind, domain_ind);
-                            b1 = b1(domain_ind);
-                            b2 = b2(domain_ind);
-                            
-                            %                     A = [a11, a12; a21, a22];
-                            %                     b = [b1; b2];
-                            A = [a11, a12; a21, a22];
-                            b = [b1; b2];
-                            %                     condition = cond(A);
-                            %                     disp(['itr: ', num2str(i-1), ' | cond(A): ', num2str(condition,'%.2g')])
-                            p2 = A\b;
-                            %                     p2 = p2(domain_ind);
-                            clear A b b1 b2 a11 a12 a21 a22
+                        
+                        if input.ghost_flag == 1
+                        % add ghost points to p. Ax p,m have same domain, cx, cy are
+                        % the same, but different bc (first order homogeneous neumann).
+                        [~, ~, ~, ~, p_tmp] = neumann_bc(mesh.num_param, mesh.param_x, mesh.param_y, [mesh.px, mesh.py], [0, 1]);
+                        px_tmp = p_tmp(:,1);
+                        py_tmp = p_tmp(:,2);
                         else
-                            [p2] = p_calc(mesh, lagrn, input.tgv_lagrn, mesh.gamma_c, mesh.gamma_p);
+                            px_tmp = mesh.px;
+                            py_tmp = mesh.py;
                         end
+
+                        
+                        % calculate weights
+                        if input.p_init_flag == 2 && i == 2 % l2 1st iteration as initialisation
+                            Rm = eye(length(grad_mx));
+                            Rp = eye(length(mesh.cx'*px_tmp));
+                        else
+                            Rm = diag(1./sqrt((grad_mx - px_tmp).^2 + (grad_my - py_tmp).^2 + gamma_c^2));
+                            Rp = diag(1./sqrt((mesh.cx'*px_tmp).^2 + (mesh.cy'*py_tmp).^2 + 0.5*(mesh.cx'*py_tmp + mesh.cy'*px_tmp).^2 + gamma_p.^2));
+                        end
+                        % Set up matrix equation for px, py and solve
+                        a11 = Rm + input.tgv_lagrn*(mesh.cx*Rp*mesh.cx' + 0.5*mesh.cy*Rp*mesh.cy');
+                        a12 = input.tgv_lagrn*0.5*mesh.cy*Rp*mesh.cx';
+                        a21 = input.tgv_lagrn*0.5*mesh.cx*Rp*mesh.cy';
+                        a22 = Rm + input.tgv_lagrn*(mesh.cy*Rp*mesh.cy' + 0.5*mesh.cx*Rp*mesh.cx');
+                        b1 = Rm*mesh.cx*log10(res_param);
+                        b2 = Rm*mesh.cy*log10(res_param);
+                        
+                        % Domain_ind first
+                        a11 = a11(domain_ind, domain_ind);
+                        a12 = a12(domain_ind, domain_ind);
+                        a21 = a21(domain_ind, domain_ind);
+                        a22 = a22(domain_ind, domain_ind);
+                        b1 = b1(domain_ind);
+                        b2 = b2(domain_ind);       
+                        
+                        %                     A = [a11, a12; a21, a22];
+                        %                     b = [b1; b2];
+                        A = [a11, a12; a21, a22];
+                        b = [b1; b2];
+                        %                     condition = cond(A);
+                        %                     disp(['itr: ', num2str(i-1), ' | cond(A): ', num2str(condition,'%.2g')])
+                        p2 = A\b;
+                        %                     p2 = p2(domain_ind);
+                        clear A b b1 b2 a11 a12 a21 a22
                         
                         % spearate px, py
                         mesh.px = p2(1:length(p2)/2);
                         mesh.py = p2((length(p2)/2+1):length(p2));
                         % eliminate ghost points
-                        %                         mesh.px = mesh.px(domain_ind);
-                        %                         mesh.py = mesh.py(domain_ind);
+%                         mesh.px = mesh.px(domain_ind);
+%                         mesh.py = mesh.py(domain_ind);
                         p2 = [mesh.px; mesh.py];
                         
                         % Store results
@@ -406,9 +356,9 @@ for k = 1:length(lagrn_in)
                         end
                         
                         p1 = p2;
-                        
+
                     end
-%                 end
+                end
                 
                 
                 t_sp2 = toc;

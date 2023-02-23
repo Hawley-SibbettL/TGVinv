@@ -12,7 +12,7 @@
 function [fem,mesh,input]=prop_change(itr,input,mesh,fem)
 
 
-if input.bgr_res_flag~=0%&& itr>1
+if input.bgr_res_flag~=0 && itr ~= 0
     
      disp ('              --------- READ BACKGROUND MODEL --------');
       
@@ -101,7 +101,7 @@ end
 
 
     for i=1:mesh.num_param
-        ind= mesh.icon(4,:)==i;
+        ind = mesh.icon(4,:) == i;
         mesh.prop(ind)=mesh.res_param1(i);
 
     end

@@ -1,5 +1,14 @@
     function final=info_save(stf,itr,ip_cnt,input,mesh,fem,final)
        
+    % if m_initialised without l2 inversion, no inversion stats to save on
+    % itr 2
+    if input.m_init_flag == 2 
+        itr2 = itr;
+    else
+        itr2 = 1;
+    end
+    
+    
 if stf==0
     final.num_param=mesh.num_param;
     final.num_of_bor=mesh.num_of_bor;
@@ -7,7 +16,7 @@ if stf==0
     final.param_y=mesh.param_y;
     % final.borehole_no_surface_flag=input.borehole_no_surface_flag;
     final.itn=itr;
-    final.lagrn(itr)=input.lagrn;
+    final.lagrn(itr) = input.lagrn;
     final.inv_flag=input.inv_flag;
     final.bgr_res_flag=input.bgr_res_flag;
     % final.par_nm=input.par_nm;
@@ -20,7 +29,7 @@ if stf==0
     final.dc_flag=input.dc_flag;
  
     
-    if input.lc_flag == 1 && itr > 1
+    if input.lc_flag == 1 && itr2 > 1
         final.lc_curvature(itr-1,:) = mesh.lc_curvature;            
         final.lc_misfit(itr-1,:) = mesh.lc_misfit;
         final.lc_roughness(itr-1,:) = mesh.lc_roughness;
@@ -36,18 +45,22 @@ if stf==0
 
     if input.time_lapse_flag==1 ;final.num_files=input.num_files; end
     
-    if itr>2 && input.acb_flag==1 
+    if itr2>2 && input.acb_flag==1 
         final.ACB(:,itr-1)=fem.L1;
     end
 
-    if itr>2 && input.time_lapse_flag==0 ;final.resolution_1=fem.resolution_matrix; end
+    if itr2>2 && input.time_lapse_flag==0 ;final.resolution_1=fem.resolution_matrix; end
     
     % Keep models
     final.res_param1(:,itr)=mesh.res_param2;
     final.acb(:,itr)=1;
     final.array_model_data=fem.array_model_data2;
     final.RMS(itr)=fem.rms_sum2;
-
+    if input.line_search_flag ~= 0
+        if itr > 2
+            final.ls = mesh.ls;
+        end
+    end
 
     if input.ip_flag==1&& ip_cnt==1
         final.res_model=mesh.res_param2;
@@ -69,6 +82,16 @@ if stf==0
     
     if itr == 1
        final.half_space_jac = fem.array_jacobian;
+       final.line_search_flag = input.line_search_flag;
+       final.dm_bc = input.dm_bc;
+       final.ext_mesh_flag = input.ext_mesh_flag;
+       final.p_init_flag = input.p_init_flag;
+       final.p_conv = input.p_conv;
+       final.l1_data_flag = input.l1_data_flag;
+       final.fd_weight = input.fd_weight;
+       final.dm_bc = input.dm_bc;
+       final.diff_type = input.diff_type;
+       final.periodic_bc = input.periodic_bc;
     end
 end
 

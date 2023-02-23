@@ -6,12 +6,6 @@ function [input,mesh]=create_mesh3(input,manual_flag)
 mesh=find_probe_spacing(input);
 if manual_flag==0 && input.refine_mesh_flag == 0;
     mesh=find_max_n(input,mesh);
-elseif manual_flag == 2
-    mesh = find_max_n(input,mesh);
-    max_depth = max(mesh.depth_n); clear mesh.max_n mesh.depth_n
-    temp_depth = depth_calculator_box(max_depth,mesh.probe_spacing,input.refine_mesh_flag);
-    mesh.depth_n = temp_depth;
-    mesh.max_n = length(mesh.depth_n);
 else
     mesh = find_max_n(input,mesh);
     max_depth = max(mesh.depth_n); clear mesh.max_n mesh.depth_n
@@ -308,9 +302,8 @@ end
 
 % If desired add n_ext extra cells to either end (for optimised surveys)
 if input.ext_mesh_flag == 1
-    n_ext = 2; 
-    ext_left = add_x_points(1) - mesh.probe_spacing*(1:n_ext);
-    ext_right = add_x_points(end) + mesh.probe_spacing*(1:n_ext);
+    ext_left = add_x_points(1) - mesh.probe_spacing*(1:input.n_ext);
+    ext_right = add_x_points(end) + mesh.probe_spacing*(1:input.n_ext);
     add_x_points = [sort(ext_left), add_x_points, ext_right];
 end
 
@@ -528,6 +521,7 @@ function [mesh]=calc_param(input,mesh)
 %     L=zeros(mesh.max_n,1);
 % end
  L=zeros(mesh.max_n,1);
+ 
 
 % scale=35.5*mesh.probe_spacing/4;
 scale = 100;
@@ -544,7 +538,7 @@ for i=1:mesh.max_n-1    % For each layer in the parameter grid
             d1=mesh.depth_n(i);
             d2=mesh.depth_n(i+1);
                
-        for J=L(i)+1:length(mesh.add_x_points)-L(i)-1
+        for J=L(i)+1:length(mesh.add_x_points)-L(i)-1 % 1:length(add_x_points)-1
             
           tmp1=tmp1+1;
 		  map=map+1;
@@ -557,9 +551,9 @@ for i=1:mesh.max_n-1    % For each layer in the parameter grid
       mesh.tmp_param(tmp1,5)=d1;                         %y1
       mesh.tmp_param(tmp1,6)=d2;                         %y2
 
-
-      if(J==L(i)+1) ;mesh.tmp_param(tmp1,3)=min(mesh.add_x_points)-mesh.probe_spacing;end                           % left
-	  if(J==length(mesh.add_x_points)-L(i)-1) ;mesh.tmp_param(tmp1,4)=max(mesh.add_x_points)+mesh.probe_spacing;end % right 
+      % doubles width of end cells
+%       if(J==L(i)+1) ;mesh.tmp_param(tmp1,3)=min(mesh.add_x_points)-mesh.probe_spacing;end                           % left
+% 	  if(J==length(mesh.add_x_points)-L(i)-1) ;mesh.tmp_param(tmp1,4)=max(mesh.add_x_points)+mesh.probe_spacing;end % right 
           
       mesh.tmp_param(tmp1,1)=(mesh.tmp_param(tmp1,3)+mesh.tmp_param(tmp1,4)) /2; % x center
 	  mesh.tmp_param(tmp1,2)=(d1+d2)/2;                 % y center

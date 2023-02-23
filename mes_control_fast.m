@@ -1,9 +1,9 @@
-function fem=mes_control_fast(itr,input,mesh,fem,current_file)
+function fem = mes_control_fast(itr,input,mesh,fem,current_file)
 
 global h2
 
-% matrix preallocation
-if  (itr <2)
+% matrix preallocation (input fem empty on itr 1)
+if  (itr < 2)
     fem.array_model_data=zeros(input.num_mes,1);
     fem.normalizing_data=zeros(input.num_mes,1);
     fem.kernel=zeros(3,3,mesh.num_elements);
@@ -13,7 +13,7 @@ end
 array_jacobian=zeros(input.num_mes,mesh.num_param);
 aaa=zeros(mesh.num_probes,mesh.num_nodes);
 
-if itr<2
+if itr < 2
     fem=secondary_field(fem,mesh,input);
 end
 tt=sprintf('**  ITERATION =>  %d  **\n',itr);
@@ -33,7 +33,7 @@ for kit=1:length(mesh.k)
     aaa=aaa+mesh.g(kit).*tmp_aaa/pi;% Inverse fourier transform
     
     
-    if input.jacobian_flag==2 || itr==1
+    if input.jacobian_flag==2 || itr==1 % full Jacobian calculation
 %         tic
         trans_jac1 = jac_control(kit,input,mesh,tmp_aaa,itr);
 %         toc
@@ -307,11 +307,7 @@ for t=1:mesh.num_probes
     % find source node
     
     % current probe location
-    
-    %*************Luke addition******************************
-%     ebc2 = find(mesh.y_node_coord(:) == 0); % surface points have y = 0
-%     mesh.num_ebc2 = length(ebc2);
-    %*********************************************************
+
     
     
     % Here assign value for elements that do no have homogeneous Neuman
@@ -506,7 +502,7 @@ end
 try % try a direct solver if memory is enough
     tmp_aaa=k\f;
 catch
-    parfor i=1:mesh.num_probes
+    for i=1:mesh.num_probes
         tmp_aaa2(:,i)=pcg(k,f(:,i),1e-7,length(k),diag(diag(k)));
     end
     
@@ -540,11 +536,13 @@ function trans_jac1 = jac_control(kit,input,mesh,tmp_aaa,itr)
 %
 % Note that I do not include swap memory in this test, as using swap
 % memory slows down the calculations.
-%
+
 % The memory function only works on windows OS. If working on linux or
 % mac, setting mem_limit = total memory - 2*mat_memory should work as a
 % conservative estimate,where total memory is the total available
 % memory of your machine
+
+
 if input.time_lapse_flag == 0
 
     [user, sys] = memory;
@@ -572,6 +570,8 @@ if input.time_lapse_flag == 0
 else
     trans_jac1 = fast_jac_control_single2(kit,input,mesh,tmp_aaa);
 end
+
+
 end
 
 function trans_jac1 = fast_vec_jac_control(kit,input,mesh,aaa)
@@ -997,7 +997,7 @@ end
 function fem=save_data(itr,input,mesh,fem,aaa)
 
 
-if itr<2
+if itr < 2 
     fem.geofac2=zeros(input.num_mes,1);
 end
 
@@ -1048,7 +1048,7 @@ end
 for i=1:input.num_mes
     if fem.array_model_data(i)<0
         i
-        disp('error');
+        error('error, fem.array_model_data(i) < 0');
         pause
     end
 end
