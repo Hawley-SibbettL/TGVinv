@@ -1,5 +1,5 @@
 # TGVinv
-Total generalized variation inversion for ERT inversion, using a modified version of IP4DI code. 
+Total generalized variation inversion for ERT inversion, using a modified version of IP4DI code, for Matlab. Due to some old dependencies in the version of IP4DI I was working with, it will not run in Matlab versions newer than 2011a. I ahve not tested old 
 
 
 This software allows the 2.5D inversion of ERT data using TGV, l2 and TV (l1) regularisation methods.
@@ -7,8 +7,7 @@ It is based on the versatile ERT and IP inversion software IP4DI, for single lin
 TGV inversion favours piecewise affine (blocky regions separated by linear gradients) behaviour, allowing 
 both smooth and sharp contrasts to be captured by the inversion.
 
-
-Note that this code contains an additional copyright notice and license contained with in the souce folder which carries forward from the original distribution.
+Note that this code contains an additional copyright notice and license contained with in the source folder which carries forward from the original distribution.
 
 References of original IP4DI code:
 
